@@ -87,7 +87,7 @@ train_queue = torch.utils.data.DataLoader(
   pin_memory=True, num_workers=2)
 
 valid_queue = torch.utils.data.DataLoader(
-  valid_data, batch_size=10000, shuffle=False, pin_memory=True, num_workers=2)
+  valid_data, batch_size=1000, shuffle=True, pin_memory=True, num_workers=2)
 
 
 epochs = 50
