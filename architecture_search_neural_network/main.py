@@ -88,9 +88,7 @@ train_queue = torch.utils.data.DataLoader(
 
 valid_queue = torch.utils.data.DataLoader(
   valid_data, batch_size=10000, shuffle=False, pin_memory=True, num_workers=2)
-input_search, target_search = next(iter(valid_queue))
-input_search = Variable(input_search, requires_grad=False).cuda()
-target_search = Variable(target_search, requires_grad=False).cuda(async=True)
+
 
 epochs = 50
 
@@ -126,14 +124,15 @@ def train(alphas_normal, alphas_reduce):
         [(np.array) gradient_respect_alphas_normal, (np.array) gradient_respect_alphas_reduce]
     """
 
-    alphas_normal = torch.from_numpy(alphas_normal)
-    alphas_reduce = torch.from_numpy(alphas_reduce)
+    alphas_normal = torch.from_numpy(alphas_normal).cuda()
+    alphas_reduce = torch.from_numpy(alphas_reduce).cuda()
 
     alphas_normal = alphas_normal.float()
     alphas_reduce = alphas_reduce.float()
 
-    model.alphas_normal = Variable(alphas_normal.cuda(), requires_grad=True)
-    model.alphas_reduce = Variable(alphas_reduce.cuda(), requires_grad=True)
+
+    model.alphas_normal = Variable(alphas_normal, requires_grad=True)
+    model.alphas_reduce = Variable(alphas_reduce, requires_grad=True)
     model._arch_parameters = [
       model.alphas_normal,
       model.alphas_reduce,
@@ -169,6 +168,10 @@ def train(alphas_normal, alphas_reduce):
 
             if step %50 == 0:
               logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+
+    input_search, target_search = next(iter(valid_queue))
+    input_search = Variable(input_search, requires_grad=False, volatile=True).cuda()
+    target_search = Variable(target_search, requires_grad=False, volatile=True).cuda(async=True)
 
     architect.optimizer.zero_grad()
     loss = architect.model._loss(input_search, target_search)
