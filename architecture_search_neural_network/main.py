@@ -124,15 +124,15 @@ def train(alphas_normal, alphas_reduce):
         [(np.array) gradient_respect_alphas_normal, (np.array) gradient_respect_alphas_reduce]
     """
 
-    alphas_normal = torch.from_numpy(alphas_normal).cuda()
-    alphas_reduce = torch.from_numpy(alphas_reduce).cuda()
+    alphas_normal = torch.from_numpy(alphas_normal)
+    alphas_reduce = torch.from_numpy(alphas_reduce)
 
     alphas_normal = alphas_normal.float()
     alphas_reduce = alphas_reduce.float()
 
 
-    model.alphas_normal = Variable(alphas_normal, requires_grad=True)
-    model.alphas_reduce = Variable(alphas_reduce, requires_grad=True)
+    model.alphas_normal = Variable(alphas_normal.cuda(), requires_grad=True)
+    model.alphas_reduce = Variable(alphas_reduce.cuda(), requires_grad=True)
     model._arch_parameters = [
       model.alphas_normal,
       model.alphas_reduce,
