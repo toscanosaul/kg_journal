@@ -186,3 +186,15 @@ def train(alphas_normal, alphas_reduce):
             gradient.append(gr)
 
     return loss, gradient
+  
+  
+if __name__ == '__main__':
+    alphas_normal = np.random.randn(k, num_ops)
+    alphas_reduce = np.random.randn(k, num_ops)
+
+    loss, gradient = train(alphas_normal, alphas_reduce)
+
+    logging.info('loss is %f', loss)
+
+    print ("gradient is: ")
+    print (gradient)
