@@ -37,6 +37,7 @@ criterion = criterion.cuda()
 init_channels = 16
 layers = 8
 model = Network(init_channels, CIFAR_CLASSES, layers, criterion)
+model = model.cuda()
 
 seed=2
 gpu = 0
@@ -88,6 +89,8 @@ train_queue = torch.utils.data.DataLoader(
 valid_queue = torch.utils.data.DataLoader(
   valid_data, batch_size=10000, shuffle=False, pin_memory=True, num_workers=2)
 input_search, target_search = next(iter(valid_queue))
+input_search = Variable(input_search, requires_grad=False).cuda()
+target_search = Variable(target_search, requires_grad=False).cuda(async=True)
 
 epochs = 50
 
@@ -112,8 +115,7 @@ num_ops = len(PRIMITIVES)
 k = sum(1 for i in range(model._steps) for n in range(2+i))
 
 
-scheduler.step()
-lr = scheduler.get_lr()[0]
+
 
 def train(alphas_normal, alphas_reduce):
     """
@@ -130,42 +132,43 @@ def train(alphas_normal, alphas_reduce):
     alphas_normal = alphas_normal.float()
     alphas_reduce = alphas_reduce.float()
 
-
-    model.alphas_normal = Variable(alphas_normal, requires_grad=True)
-    model.alphas_reduce = Variable(alphas_reduce, requires_grad=True)
+    model.alphas_normal = Variable(alphas_normal.cuda(), requires_grad=True)
+    model.alphas_reduce = Variable(alphas_reduce.cuda(), requires_grad=True)
     model._arch_parameters = [
       model.alphas_normal,
       model.alphas_reduce,
     ]
 
 
-    objs = utils.AvgrageMeter()
-    top1 = utils.AvgrageMeter()
-    top5 = utils.AvgrageMeter()
-    grad = utils.AvgrageMeter()
+    for epoch in range(epochs):
+        # scheduler.step()
+        # lr = scheduler.get_lr()[0]
+        for step, (input, target) in enumerate(train_queue):
+            objs = utils.AvgrageMeter()
+            top1 = utils.AvgrageMeter()
+            top5 = utils.AvgrageMeter()
+            grad = utils.AvgrageMeter()
+            model.train()
+            n = input.size(0)
 
-    for step, (input, target) in enumerate(train_queue):
-        model.train()
-        n = input.size(0)
+            input = Variable(input, requires_grad=False).cuda()
+            target = Variable(target, requires_grad=False).cuda(async=True)
 
-        input = Variable(input, requires_grad=False)
-        target = Variable(target, requires_grad=False)
+            optimizer.zero_grad()
+            logits = model(input)
+            loss = criterion(logits, target)
 
-        optimizer.zero_grad()
-        logits = model(input)
-        loss = criterion(logits, target)
+            loss.backward()
+            nn.utils.clip_grad_norm(model.parameters(), 5)
+            optimizer.step()
 
-        loss.backward()
-        nn.utils.clip_grad_norm(model.parameters(), 5)
-        optimizer.step()
+            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+            objs.update(loss.data[0], n)
+            top1.update(prec1.data[0], n)
+            top5.update(prec5.data[0], n)
 
-        prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
-        objs.update(loss.data[0], n)
-        top1.update(prec1.data[0], n)
-        top5.update(prec5.data[0], n)
-
-        if step %50 == 0:
-          logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+            if step %50 == 0:
+              logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
 
     architect.optimizer.zero_grad()
     loss = architect.model._loss(input_search, target_search)
@@ -186,11 +189,11 @@ def train(alphas_normal, alphas_reduce):
             gradient.append(gr)
 
     return loss, gradient
-  
-  
+
+
 if __name__ == '__main__':
-    alphas_normal = np.random.randn(k, num_ops)
-    alphas_reduce = np.random.randn(k, num_ops)
+    alphas_normal = 1e-3 * np.random.randn(k, num_ops)
+    alphas_reduce = 1e-3 * np.random.randn(k, num_ops)
 
     loss, gradient = train(alphas_normal, alphas_reduce)
 
