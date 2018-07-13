@@ -87,7 +87,7 @@ train_queue = torch.utils.data.DataLoader(
   pin_memory=True, num_workers=2)
 
 valid_queue = torch.utils.data.DataLoader(
-  valid_data, batch_size=1000, shuffle=True, pin_memory=True, num_workers=2)
+  valid_data, batch_size=64, shuffle=False, pin_memory=True, num_workers=2)
 
 
 epochs = 50
@@ -168,30 +168,42 @@ def train(alphas_normal, alphas_reduce):
 
             if step %50 == 0:
               logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
-
-    input_search, target_search = next(iter(valid_queue))
-    input_search = Variable(input_search, requires_grad=False, volatile=True).cuda()
-    target_search = Variable(target_search, requires_grad=False, volatile=True).cuda(async=True)
-
-    architect.optimizer.zero_grad()
-    loss = architect.model._loss(input_search, target_search)
-
-
-    for v in architect.model.arch_parameters():
-      if v.grad is not None:
-        v.grad.data.zero_()
-
-    loss.backward()
-
-    gradient = []
-    for v in architect.model.arch_parameters():
-        gr = v.grad
-        if gr is not None:
-            gradient.append(gr.numpy())
-        else:
-            gradient.append(gr)
-
-    return loss, gradient
+              
+    gradients=[]
+    loss_value = 0.0
+    for step, (input_search, target_search) in enumerate(valid_queue):
+        input_search = Variable(input_search, requires_grad=False, volatile=True)
+        target_search = Variable(target_search, requires_grad=False, volatile=True)
+        
+        architect.optimizer.zero_grad()
+        loss = architect.model._loss(input_search, target_search)
+        
+        loss_value += 64.0 * loss.data
+        
+        for v in architect.model.arch_parameters():
+          if v.grad is not None:
+            v.grad.data.zero_()
+        
+        loss.backward()
+        gradient = []
+        for v in architect.model.arch_parameters():
+            gr = v.grad
+            if gr is not None:
+                gradient.append(64.0 * gr.cpu().numpy())
+            else:
+                gradient.append(gr)
+        gradients.append(gradient)
+        
+    loss_value /= (64.0 * len(gradients))
+    
+    gradient = [np.zeros((k,num_ops)), np.zeros((k,num_ops))]
+    for t in gradients:
+        gradient[0] += t[0]
+        gradient[1] += t[1]
+    gradient[0] /= (64.0 * len(gradients))
+    gradient[1] /= (64.0 * len(gradients))
+    
+    return loss_value, gradient
 
 
 if __name__ == '__main__':
