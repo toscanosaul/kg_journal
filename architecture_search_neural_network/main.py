@@ -138,36 +138,36 @@ def train(alphas_normal, alphas_reduce):
       model.alphas_reduce,
     ]
 
-    #
-    # for epoch in range(epochs):
-    #     # scheduler.step()
-    #     # lr = scheduler.get_lr()[0]
-    #     for step, (input, target) in enumerate(train_queue):
-    #         objs = utils.AvgrageMeter()
-    #         top1 = utils.AvgrageMeter()
-    #         top5 = utils.AvgrageMeter()
-    #         grad = utils.AvgrageMeter()
-    #         model.train()
-    #         n = input.size(0)
-    #
-    #         input = Variable(input, requires_grad=False).cuda()
-    #         target = Variable(target, requires_grad=False).cuda(async=True)
-    #
-    #         optimizer.zero_grad()
-    #         logits = model(input)
-    #         loss = criterion(logits, target)
-    #
-    #         loss.backward()
-    #         nn.utils.clip_grad_norm(model.parameters(), 5)
-    #         optimizer.step()
-    #
-    #         prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
-    #         objs.update(loss.data[0], n)
-    #         top1.update(prec1.data[0], n)
-    #         top5.update(prec5.data[0], n)
-    #
-    #         if step %50 == 0:
-    #           logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+
+    for epoch in range(epochs):
+        # scheduler.step()
+        # lr = scheduler.get_lr()[0]
+        for step, (input, target) in enumerate(train_queue):
+            objs = utils.AvgrageMeter()
+            top1 = utils.AvgrageMeter()
+            top5 = utils.AvgrageMeter()
+            grad = utils.AvgrageMeter()
+            model.train()
+            n = input.size(0)
+
+            input = Variable(input, requires_grad=False).cuda()
+            target = Variable(target, requires_grad=False).cuda(async=True)
+
+            optimizer.zero_grad()
+            logits = model(input)
+            loss = criterion(logits, target)
+
+            loss.backward()
+            nn.utils.clip_grad_norm(model.parameters(), 5)
+            optimizer.step()
+
+            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+            objs.update(loss.data[0], n)
+            top1.update(prec1.data[0], n)
+            top5.update(prec5.data[0], n)
+
+            if step %50 == 0:
+              logging.info('train %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
               
     gradients=[]
     loss_value = 0.0
